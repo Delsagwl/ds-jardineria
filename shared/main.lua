@@ -1,5 +1,101 @@
 Config = {}
 
+Config.Clothes = {
+    male = {
+        components = { {
+                ["component_id"] = 0,
+                ["texture"] = 0,
+                ["drawable"] = 0
+            }, {
+                ["component_id"] = 1, -- Mask
+                ["texture"] = 0,
+                ["drawable"] = 0
+            }, {
+                ["component_id"] = 3, -- Upper Body
+                ["texture"] = 0,
+                ["drawable"] = 63
+            }, {
+                ["component_id"] = 4, -- Lower Body
+                ["texture"] = 0,
+                ["drawable"] = 36
+            }, {
+                ["component_id"] = 5, -- Bag
+                ["texture"] = 0,
+                ["drawable"] = 0
+            }, {
+                ["component_id"] = 6,-- Shoes
+                ["texture"] = 0,
+                ["drawable"] = 25
+            }, {
+                ["component_id"] = 7, -- Scarf & Chains
+                ["texture"] = 0,
+                ["drawable"] = 0
+            }, {
+                ["component_id"] = 8, -- Shirt
+                ["texture"] = 0,
+                ["drawable"] = 15
+            }, {
+                ["component_id"] = 9, -- Body Armor
+                ["texture"] = 0,
+                ["drawable"] = 0
+            }, {
+                ["component_id"] = 11, -- Jacket
+                ["texture"] = 0,
+                ["drawable"] = 56
+            },
+        },
+    },
+    female = {
+        components = {
+            {
+                ["component_id"] = 0,
+                ["texture"] = 0,
+                ["drawable"] = 0
+            }, {
+                ["component_id"] = 1, -- Mask
+                ["texture"] = 0,
+                ["drawable"] = 0
+            }, {
+                ["component_id"] = 3, -- Upper Body
+                ["texture"] = 0,
+                ["drawable"] = 72
+            }, {
+                ["component_id"] = 4, -- Lower Body
+                ["texture"] = 0,
+                ["drawable"] = 35
+            }, {
+                ["component_id"] = 5, -- Bag
+                ["texture"] = 0,
+                ["drawable"] = 0
+            }, {
+                ["component_id"] = 6,-- Shoes
+                ["texture"] = 0,
+                ["drawable"] = 25
+            }, {
+                ["component_id"] = 7, -- Scarf & Chains
+                ["texture"] = 0,
+                ["drawable"] = 0
+            }, {
+                ["component_id"] = 8, -- Shirt
+                ["texture"] = 0,
+                ["drawable"] = 14
+            }, {
+                ["component_id"] = 9, -- Body Armor
+                ["texture"] = 0,
+                ["drawable"] = 0
+            }, {
+                ["component_id"] = 10,  -- Decals
+                ["texture"] = 0,
+                ["drawable"] = 0
+            }, {
+                ["component_id"] = 11, -- Jacket
+                ["texture"] = 0,
+                ["drawable"] = 14
+            },
+        },
+    }
+}
+
 Config.NPC = {
     x = -1140.99,
     y = -201.65,
@@ -8,10 +104,11 @@ Config.NPC = {
 }
 
 Config.Furgoneta = {
-    x = -1138.52, 
-    y = -207.09, 
-    z = 37.93, 
-    h = 64.55
+    x = -1138.52,
+    y = -207.09,
+    z = 37.93,
+    h = 64.55,
+    matricula = "9F75H01W",
 }
 
 Config.RecompensaMin = 20
@@ -59,11 +156,11 @@ Config.ZonasJardineria = {
         vector3(1137.45, -634.25, 57.31),
         vector3(1127.85, -629.58, 57.02),
         vector3(1138.27, -606.64, 57.99),
-        vector3(1162.94, -611.60, 63.66),
         vector3(1160.26, -651.63, 60.48),
         vector3(1147.54, -656.57, 57.02),
         vector3(1135.86, -649.99, 57.13),
         vector3(1148.18, -670.38, 57.21),
         vector3(1146.57, -679.25, 57.10),
-    },
+        vector3(1133.39, -657.55, 56.91),
+    }
 }

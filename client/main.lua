@@ -7,6 +7,8 @@ local npc = nil
 local van = nil
 local blip = nil
 local jobBlip = nil
+local conectado = false
+local plate = nil
 
 -- Blip para el trabajo
 local function createJobBlip()
@@ -36,9 +38,13 @@ end
 -- Evento para cuando el trabajo cambia
 RegisterNetEvent('QBCore:Client:OnJobUpdate')
 AddEventHandler('QBCore:Client:OnJobUpdate', function(JobInfo)
+    PlayerData.job = JobInfo
     if JobInfo.name == "jardinero" then
         createJobBlip()
     else
+        if blip then
+            RemoveBlip(blip)
+        end
         removeJobBlip()
     end
 end)
@@ -46,6 +52,7 @@ end)
 -- Evento para cuando el jugador se carga
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded')
 AddEventHandler('QBCore:Client:OnPlayerLoaded', function()
+    conectado = true
     PlayerData = QBCore.Functions.GetPlayerData()
     if PlayerData.job.name == "jardinero" then
         createJobBlip()
@@ -53,6 +60,17 @@ AddEventHandler('QBCore:Client:OnPlayerLoaded', function()
         removeJobBlip()
     end
 end)
+
+local function aplicarRopa(genero)
+    local ropa = Config.Clothes[genero].components
+    for _, comp in ipairs(ropa) do
+        SetPedComponentVariation(PlayerPedId(), comp.component_id, comp.drawable, comp.texture, 0)
+    end
+end
+
+local function quitarRopa()
+    TriggerEvent("illenium-appearance:client:reloadSkin")
+end
 
 local function crearNPC()
     local model = GetHashKey("s_m_m_gardener_01")
@@ -64,7 +82,7 @@ local function crearNPC()
     FreezeEntityPosition(npc, true)
     SetEntityInvincible(npc, true)
     SetBlockingOfNonTemporaryEvents(npc, true)
-
+    
     exports['qb-target']:AddEntityZone("npc_jardinero", npc, {
         name = "npc_jardinero",
         heading = 0,
@@ -78,7 +96,15 @@ local function crearNPC()
                 event = "ds-jardineria:client:startGardening",
                 icon = "fas fa-leaf",
                 label = "Recibir tarea de jardinería",
-                job = "jardinero" -- Solo disponible para trabajadores con este job
+                text = "Fianza de $250",
+                job = "jardinero"
+            },
+            {
+                type = "client",
+                event ="illenium-appearance:client:openOutfitMenu",
+                icon = "fas fa-leaf",
+                label = "Cambiarse de ropa / Uniforme",
+                job = "jardinero"
             }
         },
         distance = 2.5
@@ -92,14 +118,16 @@ local function spawnVan()
     while not HasModelLoaded(model) do
         Wait(1)
     end
+    local plate = Config.Furgoneta.matricula
     van = CreateVehicle(model, Config.Furgoneta.x, Config.Furgoneta.y, Config.Furgoneta.z, Config.Furgoneta.h, true, false)
     SetEntityAsMissionEntity(van, true, true)
     SetVehicleOnGroundProperly(van)
     SetVehicleDoorsLocked(van, 1)
-    SetVehicleNumberPlateText(van, QBCore.Shared.RandomInt(1) .. QBCore.Shared.RandomStr(2) .. QBCore.Shared.RandomInt(3) .. QBCore.Shared.RandomStr(2))
+    SetVehicleNumberPlateText(van, plate)
     exports['ps-fuel']:SetFuel(van, 100.0)
     TriggerEvent("vehiclekeys:client:SetOwner", QBCore.Functions.GetPlate(van))
     TaskWarpPedIntoVehicle(PlayerPedId(), van, -1)
+    TriggerServerEvent('ds-jardineria:server:upfianza', plate)
 end
 
 -- Función para barajar una tabla
@@ -113,48 +141,6 @@ local function shuffleTable(t)
         t[i], t[j] = t[j], t[i]
     end
 end
-
-RegisterNetEvent('ds-jardineria:client:startGardening')
-AddEventHandler('ds-jardineria:client:startGardening', function()
-    if not jardineria then
-        jardineria = true
-        puntosJardineria = 0
-        Jardineria = {}
-
-        local keys = {}
-        for k in pairs(Config.ZonasJardineria) do
-            table.insert(keys, k)
-        end
-
-        -- Seleccionar una clave aleatoria
-        local randomKey = keys[math.random(#keys)]
-        local zonaAleatoria = Config.ZonasJardineria[randomKey]
-
-        -- Barajar los puntos del grupo para asegurarnos de que sean únicos y seleccionarlos todos
-        shuffleTable(zonaAleatoria)
-        for i = 1, math.min(10, #zonaAleatoria) do
-            table.insert(Jardineria, zonaAleatoria[i])
-        end
-
-        spawnVan()
-
-        -- Marcar el primer punto en el mapa
-        local primero = Jardineria[1]
-        blip = AddBlipForCoord(primero.x, primero.y, primero.z)
-        SetBlipSprite(blip, 318)
-        SetBlipRoute(blip, true)
-        SetBlipColour(blip, 1)
-        SetBlipScale(blip, 0.8)
-        SetBlipAsShortRange(blip, false)
-
-        -- Establecer el waypoint al primer punto
-        SetNewWaypoint(primero.x, primero.y)
-
-        QBCore.Functions.Notify("Has recibido una tarea de jardinería. Ve a los puntos indicados usando la furgoneta.", "success")
-    else
-        QBCore.Functions.Notify("Ya tienes una tarea de jardinería en curso.", "error")
-    end
-end)
 
 -- Función para trabajar una zona
 local function hacerJardineria(zona)
@@ -205,51 +191,54 @@ local function hacerJardineria(zona)
     end
 end
 
--- Detección de zonas de jardinería y mostrar marcador
-Citizen.CreateThread(function()
-    while true do
-        local sleep = 1000
-        local playerCoords = GetEntityCoords(PlayerPedId())
+RegisterNetEvent('ds-jardineria:client:startGardening')
+AddEventHandler('ds-jardineria:client:startGardening', function()
+    if not jardineria then
+        jardineria = true
+        puntosJardineria = 0
+        Jardineria = {}
 
-        if jardineria then
-            sleep = 100
-            for _, zona in pairs(Jardineria) do
-                local dist = GetDistanceBetweenCoords(playerCoords, zona.x, zona.y, zona.z, true)
-                if dist < 15.0 then
-                    sleep = 0
-                    DrawMarker(21, zona.x, zona.y, zona.z, 0.0, 0.0, 0.0, 180.0, 0.0, 0.0, 0.6, 0.6, 0.6, 28, 149, 255, 100, true, true, 2, false, false, false, false)
-                    if dist < 2.0 then
-                        if IsControlJustReleased(0, 38) then
-                            hacerJardineria(zona)
-                        end
-                    end
-                end
-            end
+        local keys = {}
+        for k in pairs(Config.ZonasJardineria) do
+            table.insert(keys, k)
         end
 
-        -- Verificar si el jugador está cerca del punto de spawn y presiona E para eliminar la furgoneta
-        local spawnDist = GetDistanceBetweenCoords(playerCoords, Config.Furgoneta.x, Config.Furgoneta.y, Config.Furgoneta.z, true)
-        if spawnDist < 5.0 then
-            DrawMarker(1, Config.Furgoneta.x, Config.Furgoneta.y, Config.Furgoneta.z - 1.0, 0, 0, 0, 0, 0, 0, 1.5, 1.5, 1.0, 255, 0, 0, 100, false, false, 2, true, nil, nil, false)
-            if spawnDist < 2.0 then
-                QBCore.Functions.DrawText3D(Config.Furgoneta.x, Config.Furgoneta.y, Config.Furgoneta.z, "[E] Devolver Furgoneta")
-                if IsControlJustReleased(0, 38) then
-                    if van then
-                        DeleteVehicle(van)
-                        van = nil
-                        QBCore.Functions.Notify("Furgoneta devuelta.", "success")
-                    end
-                end
-            end
-        end
+        -- Seleccionar una clave aleatoria
+        local randomKey = keys[math.random(#keys)]
+        local zonaAleatoria = Config.ZonasJardineria[randomKey]
 
-        Wait(sleep)
+        -- Barajar los puntos del grupo para asegurarnos de que sean únicos y seleccionarlos todos
+        shuffleTable(zonaAleatoria)
+        for i = 1, math.min(10, #zonaAleatoria) do
+            table.insert(Jardineria, zonaAleatoria[i])
+        end
+        
+        spawnVan()
+        -- Aplicar ropa
+        local gender = QBCore.Functions.GetPlayerData().charinfo.gender == 1 and "female" or "male"
+        aplicarRopa(gender)
+
+        -- Marcar el primer punto en el mapa
+        local primero = Jardineria[1]
+        blip = AddBlipForCoord(primero.x, primero.y, primero.z)
+        SetBlipSprite(blip, 318)
+        SetBlipRoute(blip, true)
+        SetBlipColour(blip, 1)
+        SetBlipScale(blip, 0.8)
+        SetBlipAsShortRange(blip, false)
+
+        -- Establecer el waypoint al primer punto
+        SetNewWaypoint(primero.x, primero.y)
+
+        QBCore.Functions.Notify("Has recibido una tarea de jardinería. Ve a los puntos indicados usando la furgoneta.", "success")
+    else
+        QBCore.Functions.Notify("Ya tienes una tarea de jardinería en curso.", "error")
     end
 end)
-
 -- onResourceStop para eliminar el NPC y la furgoneta
 AddEventHandler('onResourceStop', function(resourceName)
     if resourceName == GetCurrentResourceName() then
+        conectado = false
         if npc then
             DeleteEntity(npc)
         end
@@ -266,6 +255,8 @@ end)
 -- onResourceStarting para crear el NPC
 AddEventHandler('onResourceStarting', function(resourceName)
     if resourceName == GetCurrentResourceName() then
+        conectado = true
+        PlayerData = QBCore.Functions.GetPlayerData()
         crearNPC()
     end
 end)
@@ -273,4 +264,46 @@ end)
 -- Crear NPC cuando el script se carga
 Citizen.CreateThread(function()
     crearNPC()
+end)
+
+-- Detección de zonas de jardinería y mostrar marcador
+Citizen.CreateThread(function()
+    while true do
+        local sleep = 5000
+        if jardineria or van then
+            sleep = 100
+            local playerCoords = GetEntityCoords(PlayerPedId())
+            for _, zona in pairs(Jardineria) do
+                local dist = GetDistanceBetweenCoords(playerCoords, zona.x, zona.y, zona.z, true)
+                if dist < 15.0 then
+                    sleep = 0
+                    DrawMarker(21, zona.x, zona.y, zona.z, 0.0, 0.0, 0.0, 180.0, 0.0, 0.0, 0.6, 0.6, 0.6, 255, 255, 255, 100, true, true, 2, false, false, false, false)
+                    if dist < 2.0 then
+                        if IsControlJustReleased(0, 38) then
+                            hacerJardineria(zona)
+                        end
+                    end
+                end
+            end
+            local spawnDist = GetDistanceBetweenCoords(playerCoords, Config.Furgoneta.x, Config.Furgoneta.y, Config.Furgoneta.z, true)
+            if spawnDist < 10.0 and IsPedInAnyVehicle(PlayerPedId(), false) then
+                sleep = 10
+                DrawMarker(21, Config.Furgoneta.x, Config.Furgoneta.y, Config.Furgoneta.z, 0, 0, 0, 0, 0, 0, 1.5, 1.5, 1.0, 255, 0, 0, 100, false, false, 2, true, nil, nil, false)
+                if spawnDist < 2.0 then
+                    sleep = 0
+                    QBCore.Functions.DrawText3D(Config.Furgoneta.x, Config.Furgoneta.y, Config.Furgoneta.z, "[E] Recuperar fianza y devolver furgoneta")
+                    if IsControlJustReleased(0, 38) then
+                        local plate = GetVehicleNumberPlateText(GetVehiclePedIsIn(PlayerPedId()))
+                        TriggerServerEvent('ds-jardineria:server:downfianza', plate)
+                        DeleteVehicle(van)
+                        van = nil
+                        QBCore.Functions.Notify("Furgoneta devuelta.", "success")
+                        jardineria = false
+                        quitarRopa()
+                    end
+                end
+            end
+        end
+        Wait(sleep)
+    end
 end)
